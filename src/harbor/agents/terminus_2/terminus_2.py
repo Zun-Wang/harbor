@@ -993,6 +993,7 @@ so ask everything you need to know."""
         logging_paths: tuple[Path | None, Path | None, Path | None],
         original_instruction: str = "",
         session: TmuxSession | None = None,
+        role: str = "user",
     ) -> LLMResponse:
         logging_path, prompt_path, response_path = logging_paths
 
@@ -1003,6 +1004,7 @@ so ask everything you need to know."""
             start_time = time.time()
             llm_response = await chat.chat(
                 prompt,
+                role=role,
                 logging_path=logging_path,
                 **self._llm_call_kwargs,
             )
@@ -1177,9 +1179,10 @@ so ask everything you need to know."""
         logging_paths: tuple[Path | None, Path | None, Path | None],
         original_instruction: str = "",
         session: TmuxSession | None = None,
+        role: str = "user",
     ) -> tuple[list[Command], bool, str, str, str, LLMResponse]:
         llm_response = await self._query_llm(
-            chat, prompt, logging_paths, original_instruction, session
+            chat, prompt, logging_paths, original_instruction, session, role=role
         )
 
         result = self._parser.parse_response(llm_response.content)
@@ -1256,6 +1259,7 @@ so ask everything you need to know."""
             raise RuntimeError("Agent context is not set. This should never happen.")
 
         prompt = initial_prompt
+        prompt_role = "user"
 
         self._context.n_input_tokens = 0
         self._context.n_output_tokens = 0
@@ -1283,6 +1287,7 @@ so ask everything you need to know."""
                 )
                 if proactive_summary_result:
                     prompt, subagent_refs = proactive_summary_result
+                    prompt_role = "user"
                     # Store subagent_refs to add a system step later
                     self._pending_subagent_refs = subagent_refs
                     # Also store the handoff prompt to add as a user step
@@ -1304,7 +1309,7 @@ so ask everything you need to know."""
                 plan,
                 llm_response,
             ) = await self._handle_llm_interaction(
-                chat, prompt, logging_paths, original_instruction, self._session
+                chat, prompt, logging_paths, original_instruction, self._session, role=prompt_role
             )
 
             # If we have pending subagent refs, add a system step to record the delegation
@@ -1376,6 +1381,7 @@ so ask everything you need to know."""
                     f"Please fix these issues and provide a proper "
                     f"{self._get_error_response_type()}."
                 )
+                prompt_role = "user"
                 # For error cases, we still want to record the step
                 # Use the raw response as the message since parsing failed
                 cache_tokens_used = chat.total_cache_tokens - tokens_before_cache
@@ -1551,9 +1557,11 @@ so ask everything you need to know."""
                 else:
                     # First completion attempt - ask for confirmation and continue
                     prompt = observation
+                    prompt_role = "tool"
                     continue
 
             prompt = observation
+            prompt_role = "tool"
 
     async def run(
         self,

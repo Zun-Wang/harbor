@@ -83,6 +83,7 @@ class Chat:
     async def chat(
         self,
         prompt: str,
+        role: str = "user",
         logging_path: Path | None = None,
         **kwargs,
     ) -> LLMResponse:
@@ -116,7 +117,7 @@ class Chat:
 
         self._messages.extend(
             [
-                {"role": "user", "content": prompt},
+                {"role": role, "content": prompt},
                 assistant_message,
             ]
         )
